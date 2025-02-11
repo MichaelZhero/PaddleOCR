@@ -99,6 +99,87 @@ namespace PaddleOCR.TotalStation
             return filter.ProcessSamples(data);
         }
 
+
+ 
+        public class SavitzkyGolay
+        {
+         
+            /// <summary>
+            /// 滤波系数
+            /// </summary>
+            public double[] Coefficient { get; private set; }
+            /// <summary>
+            /// 构造梯度滤波器
+            /// </summary>
+            /// <param name="m">半步宽(m>0,m越大,平滑度越大)</param>
+            public SavitzkyGolay(int m = 2)
+            {
+                this.SetCoefficient(m);
+            }
+            /// <summary>
+            /// 设置滤波系数
+            /// </summary>
+            /// <param name="m">半步宽(m>0,m越大,平滑度越大)</param>
+            public void SetCoefficient(int m)
+            {
+                List<double> result = new List<double>();
+                int w = m * 2 + 1;
+                double W2 = Math.Pow(w, 2);
+                double a1 = 15 / (W2 - 4);
+                double a2 = (W2 - 1) / 12;
+                for (int j = -m; j <= m; j++)
+                {
+                    result.Add((1 + a1 * (a2 - Math.Pow(j, 2))) / w);
+                }
+                //var ss = result.Select(x1 => x1.ToString()).Aggregate((a, b) => a + " " + b);
+                this.Coefficient = result.ToArray();
+            }
+         
+            /// <summary>
+            /// 单点平滑
+            /// </summary>
+            /// <param name="list">平滑参考点(list.Length 必须等于 this.Coefficient.Length)</param>
+            /// <returns></returns>
+            public double Smooth(List<double> list)
+            {
+                double result = 0;
+                for (int i = 0; i < this.Coefficient.Length; i++)
+                {
+                    result += this.Coefficient[i] * list[i];
+                }
+                return result;
+            }
+         
+            /// <summary>
+            /// 曲线平滑
+            /// </summary>
+            /// <param name="curve">曲线</param>
+            /// <returns></returns>
+            public double[] Smoothes(double[] curve)
+            {
+         
+                int length = curve.Length;
+                double[] result = new double[length];//Result cache
+                int k = this.Coefficient.Length / 2;
+                //this.SetCoefficient(w);//Savitzky Golay Filter Coefficient
+                Array.Copy(curve, result, k);//Fill head
+         
+                for (int i = k; i < length - k; i++)
+                {
+                    List<double> list = new List<double>();//Smooth list
+                    for (int j = i - k; j <= i + k; j++)
+                    {
+                        list.Add(curve[j]);
+                    }
+                    result[i] = this.Smooth(list);//Single point smooth
+                }
+         
+                Array.Copy(curve, length - k, result, length - k, k);//Fill Tail
+                return result;
+            }
+        }
+         
+        
         // 使用Canny边缘检测算法
         private static List<int> FindEdgesCanny(List<(double X, double Y)> points)
         {
